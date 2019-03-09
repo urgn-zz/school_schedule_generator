@@ -1,0 +1,17 @@
+program Schedule;
+
+uses
+  Forms,
+  main_u in 'main_u.pas' {MainForm},
+  TTimeTable in 'TTimeTable.pas',
+  export_dlg in 'export_dlg.pas' {ExportDlg};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.CreateForm(TMainForm, MainForm);
+  Application.CreateForm(TExportDlg, ExportDlg);
+  Application.CreateForm(TExportDlg, ExportDlg);
+  Application.Run;
+end.

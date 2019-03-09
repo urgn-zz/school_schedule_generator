@@ -1,0 +1,59 @@
+object ExportDlg: TExportDlg
+  Left = 227
+  Top = 108
+  BorderStyle = bsDialog
+  Caption = 'Export'
+  ClientHeight = 600
+  ClientWidth = 458
+  Color = clBtnFace
+  ParentFont = True
+  OldCreateOrder = True
+  Position = poScreenCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object OKBtn: TButton
+    Left = 8
+    Top = 567
+    Width = 441
+    Height = 26
+    Caption = 'OK'
+    Default = True
+    Enabled = False
+    ModalResult = 1
+    TabOrder = 0
+  end
+  object CancelBtn: TButton
+    Left = 268
+    Top = 471
+    Width = 75
+    Height = 25
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
+    TabOrder = 1
+  end
+  object ListView1: TListView
+    Left = 8
+    Top = 8
+    Width = 441
+    Height = 553
+    Columns = <
+      item
+        Caption = 'Subject'
+      end
+      item
+        Caption = 'Lesson type'
+      end
+      item
+        Caption = 'Teacher'
+      end
+      item
+        Caption = 'Group'
+      end
+      item
+        Caption = 'Reason'
+      end>
+    TabOrder = 2
+    ViewStyle = vsReport
+  end
+end

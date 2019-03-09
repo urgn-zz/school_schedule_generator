@@ -1,0 +1,21 @@
+program Schedule;
+
+uses
+  Forms,
+  main_u in 'main_u.pas' {MainForm},
+  TTimeTable in 'TTimeTable.pas',
+  export_dlg in 'export_dlg.pas' {ExportDlg},
+  OKCANCL1 in 'C:\Users\WASD\Desktop\OKCANCL1.PAS' {OKBottomDlg},
+  exceptns in 'exceptns.pas' {NotFitDlg};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.CreateForm(TMainForm, MainForm);
+  Application.CreateForm(TExportDlg, ExportDlg);
+  Application.CreateForm(TExportDlg, ExportDlg);
+  Application.CreateForm(TNotFitDlg, NotFitDlg);
+  Application.CreateForm(TNotFitDlg, NotFitDlg);
+  Application.Run;
+end.

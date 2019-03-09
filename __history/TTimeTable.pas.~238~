@@ -1,0 +1,727 @@
+unit TTimeTable;
+
+
+
+interface
+    uses Classes, Contnrs, SQLExpr, SysUtils, Data.Db, Dialogs;
+type
+  //Base classes
+  TTeacher = class
+    TeacherID : Integer;
+    constructor Create(aTeacherID : Integer);
+  end;
+
+  TRoom = class
+    RoomID : Integer;
+    HasPC  : Boolean;
+    constructor Create(aRoomID : Integer; aHasPC : Boolean);
+  end;
+
+  TGroup = class
+    GroupID : Integer;
+    constructor Create(aGroupID : Integer);
+  end;
+
+  TSubject = class
+    SubjectId : integer;
+    constructor Create ( SubjectID : Integer );
+  end;
+
+  // Load item (Lesson)
+  TLoadItem = class
+    LoadID  : Integer;
+    Teacher : TTeacher;
+    Group   : TGroup;
+    NeedPC  : BOOLEAN;
+    Checked : BOOLEAN;
+    constructor Create ( LoadID : Integer; Teacher: TTeacher; Group: TGroup; NeedPC : Boolean);
+  end;
+
+
+  // All lessons in current time
+  TCurrentLesson = class
+    TimeID : INTEGER;
+    Lessons : TObjectList;
+
+    BusyGroups : TObjectList;
+    FreeGroups : TObjectList;
+
+    BusyRooms : TObjectList;
+    FreeRooms : TObjectList;
+
+    BusyTeachers : TObjectList;
+    FreeTeachers : TObjectList;
+
+    AssignedLoad : TObjectList;
+
+    ReadyLessons : TObjectList;
+
+    Checked : Boolean;
+
+    constructor Create ( aTimeID : Integer) ;
+  end;
+
+  // Assigned lesson
+  TLesson = class
+    Parent   : TCurrentLesson;
+    LoadItem : TLoadItem;
+    Room     : TRoom;
+    constructor Create( aParent : TCurrentLesson; aLoadItem : TLoadItem; aRoom : TRoom );
+  end;
+
+  TLessons = array of array of array of TCurrentLesson;
+
+  // All lesson of all time
+  T_TimeTable =  class
+
+    FData : TLessons;
+
+    AllTeachers : TObjectList;
+    AllGroups   : TObjectList;
+    AllRooms    : TObjectList;
+    AllSubjects : TObjectList;
+
+    AllLoad : TObjectList;
+
+    FreeLoad : TObjectList;
+    BusyLoad : TObjectList;
+
+    AllLessons : TObjectList;
+
+    l_count : integer;
+    w_count : integer;
+    d_count : integer;
+
+    // Loading catalog data
+    procedure loadTeacherData (ds_Teacher, ds_Avlblt : TSQLDataSet );
+    procedure loadGroupData (ds_Group, ds_Avlblt : TSQLDataSet);
+    procedure loadRoomData (ds_Room, ds_Avlblt : TSQLDataSet) ;
+    procedure loadSubjectData (ds_Subject : TSQLDataSet);
+
+    // Loading LOAD Data
+    procedure loadLoadData (ds_Load : TSQLDataSet);
+
+    // Usefull shit
+    function findTeacherById (TeacherID : Integer) : TTeacher;
+    function findGroupById (GroupID : Integer) : TGroup;
+    function findRoomByID (RoomID : Integer) : TRoom;
+
+    procedure fillFirstDraft;
+    function placeIntoTimeTable (li : TLoadItem) : boolean;
+
+    procedure fitRooms;
+
+    constructor Create( ads_Teacher, ads_Group,
+                        ads_Room,    ads_Subject,
+                        ads_Avlblt,  ads_Load : TSQLDataSet );
+
+  end;
+
+implementation
+
+
+{ TTeacher }
+
+constructor TTeacher.Create(aTeacherID: Integer);
+begin
+    self.TeacherID := aTeacherID;
+end;
+
+{ TRoom }
+
+constructor TRoom.Create(aRoomID: Integer; aHasPC : Boolean);
+begin
+    self.RoomID := aRoomID;
+    self.HasPC  := aHasPC;
+end;
+
+{ TGroup }
+
+constructor TGroup.Create(aGroupID: Integer);
+begin
+    self.GroupID := aGroupID;
+end;
+
+{ TCurrentLesson }
+
+constructor TCurrentLesson.Create(aTimeID: Integer);
+begin
+     self.TimeID := aTimeID;
+
+     self.BusyGroups := TObjectList.Create(false);
+     self.FreeGroups := TOBjectList.Create(false);
+
+     self.FreeTeachers := TObjectList.Create(false);
+     self.BusyTeachers := TObjectList.Create(false);
+
+     self.BusyRooms := TObjectList.Create(false);
+     self.FreeRooms := TObjectList.Create(false);
+
+     self.AssignedLoad := TObjectList.Create(false);
+
+     self.ReadyLessons := TObjectList.Create(false);
+
+end;
+
+{ T_TimeTable }
+
+constructor T_TimeTable.Create( ads_Teacher, ads_Group, ads_Room,
+                                ads_Subject, ads_Avlblt, ads_Load : TSQLDataSet );
+
+var
+  i, j, k : Integer;
+begin
+
+      w_count := 2;
+      d_count := 6;
+      l_count := 6;
+
+      // Creating cells
+      SetLength(FData, w_count);
+      for I := 0 to pred(w_count) do
+      BEGIN
+        SetLength(FData[i], d_count);
+        for J := 0 to pred(d_count) do
+          BEGIN
+            SetLength(FData[i,j], l_count);
+            for K := 0 to pred(l_count) do
+            begin
+              FData[i,j,k] := TCurrentLesson.Create((i + 1)*100 + (j + 1)*10 + k + 1);
+            end;
+          END;
+      END;
+
+      // Loading initial catalogs and avialability
+      AllSubjects := TObjectList.Create(true);
+      loadSubjectData(ads_Subject);
+
+      AllGroups := TObjectList.Create(true);
+      loadGroupData(ads_Group, ads_Avlblt);
+
+      AllTeachers := TObjectList.Create(true);
+      loadTeacherData(ads_Teacher, ads_Avlblt);
+
+      AllRooms := TObjectList.Create(true);
+      loadRoomData(ads_Group, ads_Avlblt);
+
+      FreeLoad := TObjectList.Create(false);
+      BusyLoad := TObjectList.Create(false);
+
+      AllLessons := TObjectList.Create(false);
+
+      loadLoadData(ads_Load);
+
+      fillFirstDraft;
+      fitRooms;
+
+end;
+
+procedure T_TimeTable.fillFirstDraft;
+var
+  i,j : Integer;
+  TempLoad : TLoadItem;
+begin
+  for I := pred( FreeLoad.Count ) downto 0 do
+  begin
+       for j := 0 to pred(AllLoad.Count) do (AllLoad.Items[i] AS TLoadItem).Checked := false;
+       TempLoad := (FreeLoad.Items[i] AS TLoadItem);
+       if (placeIntoTimeTable(TempLoad)) then
+       begin
+          BusyLoad.Add(TempLoad);
+          FreeLoad.Remove(TempLoad);
+       end;
+  end;
+  if (FreeLoad.Count > 0) then ShowMessage('You got ' + IntToStr(FreeLoad.Count) + ' conflict(s);');
+end;
+
+function T_TimeTable.findGroupById(GroupID: Integer): TGroup;
+var
+  i: Integer;
+begin
+     for i := 0 to pred(AllGroups.Count) do
+     begin
+        if ((AllGroups.Items[i]) AS TGroup).GroupID = GroupID then
+        begin
+          Result := (AllGroups.Items[i] AS TGroup);
+          exit;
+        end;
+     end;
+end;
+
+function T_TimeTable.findRoomByID(RoomID: Integer): TRoom;
+var
+  i: Integer;
+begin
+     for i := 0 to pred(AllGroups.Count) do
+     begin
+        if ((AllGroups.Items[i]) AS TRoom).RoomID = RoomID then
+        begin
+          Result := (AllRooms.Items[i] AS TRoom);
+          exit;
+        end;
+     end;
+end;
+
+function T_TimeTable.findTeacherById(TeacherID: Integer): TTeacher;
+var
+  i: Integer;
+begin
+     for i := 0 to pred(AllTeachers.Count) do
+     begin
+        if ((AllTeachers.Items[i]) AS TTeacher).TeacherID = TeacherID then
+        begin
+          Result := (AllTeachers.Items[i] AS TTeacher);
+          exit;
+        end;
+     end;
+end;
+
+procedure T_TimeTable.fitRooms;
+var
+  w, d, l, i, j : Integer;
+  //temp_load : TLoadItem;
+  temp_room : TRoom;
+  temp_lesson1, temp_lesson2 : TLesson;
+  k: Integer;
+begin
+    // ASSIGN ROOMS WITH SPECIALS INSIDE SCOPE OF 1 time-slot
+    for i := 0 to pred(AllLessons.Count) do
+    begin
+      with (AllLessons.Items[i] AS TLesson) do
+      begin
+        if not LoadItem.NeedPC then continue;
+        for j := 0 to pred(Parent.FreeRooms.Count) do
+        begin
+          if (Parent.FreeRooms.Items[j] AS TRoom).HasPC then
+          begin
+            Parent.FreeRooms.Remove((Parent.FreeRooms.Items[j] AS TRoom));
+            Parent.BusyRooms.Add((Parent.FreeRooms.Items[j] AS TRoom));
+            Room := (Parent.FreeRooms.Items[j] AS TRoom);
+            break;
+          end;
+        end;
+      end;
+    end;
+
+    //SWAP LESSONS INTO ANOTHER TIME-SLOT WHERE SUCH ROOM EXISTS
+    for i := 0 to pred(AllLessons.Count) do
+    begin
+      temp_lesson1 := AllLessons.Items[i] AS TLesson;
+      if not ((temp_lesson1.LoadItem.NeedPC)
+          AND (temp_lesson1.Room = nil)) then continue;
+      for j := 0 to pred(AllLessons.Count) do
+      begin
+         temp_lesson2 := AllLessons.Items[j] AS TLesson;
+         if (temp_lesson1.LoadItem.Teacher = temp_lesson2.LoadItem.Teacher) 
+          AND (temp_lesson1.LoadItem.Group = temp_lesson2.LoadItem.Group ) 
+          AND not temp_lesson2.LoadItem.NeedPC 
+        then
+        begin
+             for k := 0 to pred(temp_lesson2.Parent.FreeRooms.Count) do
+             begin
+                temp_room := temp_lesson2.Parent.FreeRooms.Items[k] AS TRoom;
+                if temp_room.HasPC then
+                begin
+                  temp_lesson1.Room := temp_room;
+                  temp_lesson2.Parent.FreeGroups.Remove(temp_room);
+                  temp_lesson2.Parent.BusyGroups.Add(temp_room);
+                  temp_lesson2.Parent.Lessons.Add(temp_lesson1);
+                  temp_lesson2.Parent.Lessons.Remove(temp_lesson2);
+                  temp_lesson1.Parent.Lessons.Add(temp_lesson2);
+                  temp_lesson1.Parent.Lessons.Remove(temp_lesson1);
+                  break;
+                end;
+             end;
+          end;
+        end;
+      end;
+
+    //Try to rooms without specials
+    // ASSIGN ROOMS WITHOUT SPECIALS INSIDE SCOPE OF 1 time-slot
+    for i := 0 to pred(AllLessons.Count) do
+    begin
+      with (AllLessons.Items[i] AS TLesson) do
+      begin
+        if LoadItem.NeedPC then continue;
+        for j := 0 to pred(Parent.FreeRooms.Count) do
+        begin
+            Parent.FreeRooms.Remove((Parent.FreeRooms.Items[j] AS TRoom));
+            Parent.BusyRooms.Add((Parent.FreeRooms.Items[j] AS TRoom));
+            Room := (Parent.FreeRooms.Items[j] AS TRoom);
+            break;
+        end;
+      end;
+    end;
+
+    //SWAP LESSONS INTO ANOTHER TIME-SLOT WHERE SUCH ROOM EXISTS
+    for i := 0 to pred(AllLessons.Count) do
+    begin
+      temp_lesson1 := AllLessons.Items[i] AS TLesson;
+      if not (temp_lesson1.LoadItem.NeedPC) AND (temp_lesson1.Room = nil) then continue;
+      for j := 0 to pred(AllLessons.Count) do
+      begin
+         temp_lesson2 := AllLessons.Items[j] AS TLesson;
+         if (temp_lesson1.LoadItem.Teacher = temp_lesson2.LoadItem.Teacher) 
+          AND (temp_lesson1.LoadItem.Group = temp_lesson2.LoadItem.Group ) 
+          AND not temp_lesson2.LoadItem.NeedPC 
+        then
+        begin
+             for k := 0 to pred(temp_lesson2.Parent.FreeRooms.Count) do
+             begin
+                temp_room := temp_lesson2.Parent.FreeRooms.Items[k] AS TRoom;
+                if temp_room.HasPC then
+                begin
+                  temp_lesson1.Room := temp_room;
+                  temp_lesson2.Parent.FreeGroups.Remove(temp_room);
+                  temp_lesson2.Parent.BusyGroups.Add(temp_room);
+                  temp_lesson2.Parent.Lessons.Add(temp_lesson1);
+                  temp_lesson2.Parent.Lessons.Remove(temp_lesson2);
+                  temp_lesson1.Parent.Lessons.Add(temp_lesson2);
+                  temp_lesson1.Parent.Lessons.Remove(temp_lesson1);
+                  break;
+                end;
+             end;
+          end;
+        end;
+      end;
+end;
+
+procedure T_TimeTable.loadGroupData(ds_Group, ds_Avlblt: TSQLDataSet);
+var
+  TempGroup : TGroup;
+  AvQuery   : String;
+  Time_ID,
+  w, d, l   : Integer;
+begin
+  if not ds_Group.Active then ds_Group.Open;
+
+  ds_Group.First;
+
+  while not ds_Group.eof do
+  begin
+      TempGroup := TGroup.Create(ds_Group.Fields[0].Value);
+      AllGroups.Add(TempGroup);
+
+      //Load avialability
+      if ds_Avlblt.Active then ds_Avlblt.Close;
+      avQuery := 'SELECT "time_id" FROM "av_Group" WHERE "flag" = ''1'' AND "Group_id" = ' + IntToStr(TempGroup.GroupID) + ';';
+      ds_Avlblt.CommandType := ctQuery;
+      ds_Avlblt.CommandText := AvQuery;
+      ds_Avlblt.Open;
+      ds_Avlblt.First;
+      while not ds_Avlblt.Eof do
+      begin
+            Time_Id := ds_Avlblt.Fields[0].Value;
+            w := time_Id div 100;
+            d := (time_id - w*100) div 10;
+            l := time_id - w*100 - d*10;
+            FData[w - 1,d - 1,l - 1].FreeGroups.Add(TempGroup);
+            ds_Avlblt.Next;
+      end;
+      ds_Avlblt.Close;
+      ds_Group.Next;
+  end;
+end;
+
+procedure T_TimeTable.loadLoadData(ds_Load: TSQLDataSet);
+var
+  i: Integer;
+  a : TGRoup;
+  gid : integer;
+  temp_load : TLoadItem;
+begin
+  AllLoad := TObjectList.Create(false);
+
+  if not (ds_Load.Active) then ds_Load.Open;
+  ds_Load.First;
+  while not ds_Load.Eof do
+  begin
+    for i := 1 to ds_Load.FieldByName('num_hours').Value do
+    begin
+      gid := ds_Load.FieldByName('group_id').Value;
+      a := findGroupById(ds_Load.FieldByName('group_id').Value);
+
+      temp_load :=  TLoadItem.Create( ds_Load.FieldByName('Load_id').Value,
+                                      findTeacherById(ds_Load.FieldByName('teacher_id').Value),
+                                      findGroupById(ds_Load.FieldByName('group_id').Value),
+                                      false);
+
+      FreeLoad.Add(temp_load);
+      AllLoad.Add(temp_load);
+
+    end;
+    ds_Load.Next;
+  end;
+
+
+end;
+
+procedure T_TimeTable.loadRoomData(ds_Room, ds_Avlblt: TSQLDataSet);
+var
+  TempRoom : TRoom;
+  AvQuery   : String;
+  Time_ID,
+  w, d, l   : Integer;
+begin
+  if not ds_Room.Active then ds_Room.Open;
+
+  ds_Room.First;
+
+  while not ds_Room.eof do
+  begin
+      TempRoom := TRoom.Create(ds_Room.Fields[0].Value, ds_Room.Fields[2].Value <> 0);
+      AllRooms.Add(TempRoom);
+
+      //Load avialability
+      if ds_Avlblt.Active then ds_Avlblt.Close;
+      avQuery := 'SELECT "time_id" FROM "av_Room" WHERE "flag" = ''1'' AND "Room_id" = ' + IntToStr(TempRoom.RoomID) + ';';
+      ds_Avlblt.CommandType := ctQuery;
+      ds_Avlblt.CommandText := AvQuery;
+
+      ds_Avlblt.Open;
+      ds_Avlblt.First;
+      //ds_Avlblt.First;
+      while not ds_Avlblt.Eof do
+      begin
+            Time_Id := ds_Avlblt.Fields[0].Value;
+            w := time_Id div 100;
+            d := (time_id - w*100) div 10;
+            l := time_id - w*100 - d*10;
+            FData[w - 1,d - 1,l - 1].FreeGroups.Add(TempRoom);
+            ds_Avlblt.Next;
+      end;
+      ds_Avlblt.Close;
+    ds_Room.Next;
+  end;
+end;
+
+procedure T_TimeTable.loadSubjectData(ds_Subject: TSQLDataSet);
+var
+  TempSubject : TSubject;
+begin
+  if not ds_Subject.Active then ds_Subject.Open;
+
+  ds_Subject.First;
+
+  while not ds_Subject.eof do
+  begin
+      AllSubjects.Add(TSubject.Create(ds_Subject.Fields[0].Value));
+      ds_Subject.Next;
+  end;
+end;
+
+procedure T_TimeTable.loadTeacherData(ds_Teacher, ds_Avlblt: TSQLDataSet);
+var
+  TempTeacher : TTeacher;
+  AvQuery : String;
+  Time_ID,
+  w, d, l, x : Integer;
+begin
+  if not ds_Teacher.Active then ds_Teacher.Open;
+
+  ds_Teacher.First;
+
+  while not ds_Teacher.eof do
+  begin
+      TempTeacher := TTeacher.Create(ds_Teacher.Fields[0].Value);
+      AllTeachers.Add(TempTeacher);
+
+      //Load avialability
+      if ds_Avlblt.Active then ds_Avlblt.Close;
+      avQuery := 'SELECT "time_id" FROM "av_Teacher" WHERE "flag" = ''1'' AND "Teacher_id" = ' + IntToStr(TempTeacher.TeacherID) + ';';
+      ds_Avlblt.CommandType := ctQuery;
+      ds_Avlblt.CommandText := AvQuery;
+
+      ds_Avlblt.Open;
+      ds_Avlblt.First;
+
+      while not ds_Avlblt.Eof do
+      begin
+            Time_Id := ds_Avlblt.Fields[0].Value;
+            w := time_Id div 100;
+            d := (time_id - w*100) div 10;
+            l := time_id - w*100 - d*10;
+            FData[w - 1,d - 1,l - 1].FreeTeachers.Add(TempTeacher);
+            ds_Avlblt.Next;
+      end;
+
+      ds_Avlblt.Close;
+      ds_Teacher.Next;
+  end;
+end;
+
+function T_TimeTable.placeIntoTimeTable(li: TLoadItem): boolean;
+var
+  w, d, l: Integer;
+  li2 : TLoadItem;
+  i: Integer;
+  rdy_Lesson : TLesson;
+begin
+    Result := false;
+    li.Checked := true;
+
+    //Look for free cells
+    for w := 0 to pred(length(FData)) do
+        for l := 0 to pred(length(FData[0][0])) do
+          for d := 0 to pred(length(FData[0])) do
+            WITH FData[w][d][l] AS TCurrentLesson DO
+            begin
+              if (FreeTeachers.IndexOf(li.Teacher) >= 0)
+              AND (FreeGroups.IndexOf(li.Group) >= 0) then
+              begin
+                FreeTeachers.Remove(li.Teacher);
+                BusyTeachers.Add(li.Teacher);
+
+                FreeGroups.Remove(li.Group);
+                BusyGroups.Add(li.Group);
+
+                BusyLoad.Add(li);
+                FreeLoad.Remove(li);
+
+                AssignedLoad.Add(li);
+
+                rdy_Lesson := TLesson.Create(FData[w][d][l], li, nil);
+                ReadyLessons.Add(rdy_Lesson);
+                AllLessons.Add(rdy_Lesson);
+
+                Result := true;
+                exit;
+              end;
+            end;
+
+    //Look for semi-busy cells
+    for l := 0 to pred(l_count) do
+      for d := 0 to pred(d_count) do
+        for w := 0 to pred(w_count) do
+          begin
+            // Teacher is free but group is busy by li2
+            if (FData[w][d][l].FreeTeachers.IndexOf(li.Teacher) >= 0)
+               AND (FData[w][d][l].BusyGroups.IndexOf(li.Group) >= 0)
+               then
+               begin
+                  //get load item of busy group
+                  li2 := nil;
+                  for i := 0 to pred(FData[w][d][l].AssignedLoad.Count) do
+                    if li.Group = (FData[w][d][l].AssignedLoad.Items[i] AS TLoadItem).Group then
+                    begin
+                      li2 := FData[w][d][l].AssignedLoad.Items[i] AS TLoadItem;
+                    end;
+                  //replace li2 by li1, we find new place for li2 and placing li1 to the old place of li2
+                  if li2.Checked then continue;
+
+                  if (placeIntoTimeTable(li2)) then
+                  begin
+                    FData[w][d][l].AssignedLoad.Remove(li2);
+                    FData[w][d][l].AssignedLoad.Add(li);
+                    FData[w][d][l].FreeTeachers.Remove(li.Teacher);
+                    FData[w][d][l].BusyTeachers.Add(li.Teacher);
+
+                    rdy_Lesson := TLesson.Create(FData[w][d][l], li, nil);
+                    FData[w][d][l].ReadyLessons.Add(rdy_Lesson);
+                    AllLessons.Add(rdy_Lesson);
+
+                    Result := true;
+                    exit;
+                  end;
+               end;
+
+              // Teacher is busy by li2 but group is free
+              if (FData[w][d][l].BusyTeachers.IndexOf(li.Teacher) >= 0)
+                 AND (FData[w][d][l].FreeGroups.IndexOf(li.Group) >= 0) then
+                begin
+                   li2 := nil;
+                    for i := 0 to pred(FData[w][d][l].AssignedLoad.Count) do
+                      if li.Teacher = (FData[w][d][l].AssignedLoad.Items[i] AS TLoadItem).Teacher then
+                      begin
+                        li2 := FData[w][d][l].AssignedLoad.Items[i] AS TLoadItem;
+                      end;
+                    if li2.Checked then continue;
+                    if (placeIntoTimeTable(li2)) then
+                    begin
+                      FData[w][d][l].AssignedLoad.Remove(li2);
+                      FData[w][d][l].AssignedLoad.Add(li);
+                      FData[w][d][l].FreeGroups.Remove(li.Group);
+                      FData[w][d][l].BusyGroups.Add(li.Group);
+
+                      rdy_Lesson := TLesson.Create(FData[w][d][l], li, nil);
+                      FData[w][d][l].ReadyLessons.Add(rdy_Lesson);
+                      AllLessons.Add(rdy_Lesson);
+
+                      Result := true;
+                      exit;
+                    end;
+                end;
+            end;
+
+    //Look for busy teacher and busy group
+    for w := 0 to pred(length(FData)) do
+        for l := 0 to pred(length(FData[0][0])) do
+          for d := 0 to pred(length(FData[0])) do
+            WITH FData[w][d][l] AS TCurrentLesson DO
+            begin
+              if (BusyTeachers.IndexOf(li.Teacher) >= 0)
+              AND (BusyGroups.IndexOf(li.Group) >= 0) then
+              begin
+                for i := 0 to pred(AssignedLoad.Count) do
+                  if (li.Teacher = (AssignedLoad.Items[i] AS TLoadItem).Teacher)
+                    AND (li.Group = (AssignedLoad.Items[i] AS TLoadItem).Group) then
+                  begin
+                        li2 := AssignedLoad.Items[i] AS TLoadItem;
+                        break;
+                  end;
+                if li2.Checked then continue;
+
+                if (placeIntoTimeTable(li2)) then
+                begin
+                  FreeTeachers.Remove(li.Teacher);
+                  BusyTeachers.Add(li.Teacher);
+
+                  FreeGroups.Remove(li.Group);
+                  BusyGroups.Add(li.Group);
+
+                  BusyLoad.Add(li);
+                  FreeLoad.Remove(li);
+
+                  AssignedLoad.Add(li);
+
+                  rdy_Lesson := TLesson.Create(FData[w][d][l], li, nil);
+                  FData[w][d][l].ReadyLessons.Add(rdy_Lesson);
+                  AllLessons.Add(rdy_Lesson);
+
+                  Result := true;
+                  exit;
+                end;
+              end;
+            end;
+
+            Result := false;
+
+end;
+
+{ TLoadItem }
+
+constructor TLoadItem.Create( LoadID : Integer; Teacher: TTeacher; Group: TGroup; NeedPC : Boolean);
+begin
+    self.LoadID := LoadID;
+    self.Teacher := Teacher;
+    self.Group  := Group;
+    self.Checked := false;
+end;
+
+{ TSubject }
+
+constructor TSubject.Create(SubjectID: Integer);
+begin
+  self.SubjectId := SubjectID;
+end;
+
+{ TLesson }
+
+constructor TLesson.Create(aParent : TCurrentLesson; aLoadItem: TLoadItem; aRoom: TRoom);
+begin
+    self.Parent := aParent;
+    self.LoadItem := aLoadItem;
+    self.Room := aRoom;
+end;
+
+end.

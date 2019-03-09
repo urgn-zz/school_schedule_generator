@@ -1,0 +1,13 @@
+program Schedule;
+
+uses
+  Forms,
+  main_u in 'main_u.pas' {Form1};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.CreateForm(TForm1, Form1);
+  Application.Run;
+end.

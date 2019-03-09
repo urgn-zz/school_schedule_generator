@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.996,C:\Users\WASD\Desktop\OKCANCL1.PAS=c:\program files (x86)\embarcadero\rad studio\10.0\ObjRepos\EN\DelphiWin32\OKCANCL1.PAS</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.213,D:\Study\4Y\Диплом\Prog\OKCANCL2.pas=D:\Study\4Y\Диплом\Prog\export_dlg.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.268,=D:\Study\4Y\Диплом\Prog\OKCANCL2.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.804,C:\Users\WASD\Desktop\OKCANCL1.PAS=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.959,D:\Study\4Y\Диплом\Prog\Unit1.pas=D:\Study\4Y\Диплом\Prog\TTimeTable.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.497,=D:\Study\4Y\Диплом\Prog\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.346,=D:\Study\4Y\Диплом\Prog\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.372,=D:\Study\4Y\Диплом\Prog\OKCNHLP1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.213,D:\Study\4Y\Диплом\Prog\OKCANCL2.dfm=D:\Study\4Y\Диплом\Prog\export_dlg.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.957,D:\Study\4Y\Диплом\Prog\exceptns.dfm=D:\Study\4Y\Диплом\Prog\OKCNHLP1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.957,D:\Study\4Y\Диплом\Prog\exceptns.pas=D:\Study\4Y\Диплом\Prog\OKCNHLP1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.171,=c:\program files (x86)\embarcadero\rad studio\10.0\ObjRepos\EN\DelphiWin32\OKCANCL1.PAS</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.996,C:\Users\WASD\Desktop\OKCANCL1.dfm=c:\program files (x86)\embarcadero\rad studio\10.0\ObjRepos\EN\DelphiWin32\OKCANCL1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.072,=D:\Study\4Y\Диплом\Prog\ModelSupport_Schedule\default.txvpck</Transaction>
+  </Transactions>
+</BorlandProject>

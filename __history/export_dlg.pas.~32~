@@ -1,0 +1,85 @@
+unit export_dlg;
+
+interface
+
+uses Winapi.Windows, System.SysUtils, System.Classes, Vcl.Graphics, Vcl.Forms,
+  Vcl.Controls, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.Dialogs,
+  frxExportPDF, frxClass, frxExportXLS, Vcl.ComCtrls, TTimeTable,Data.SqlExpr,Datasnap.DBClient;
+
+type
+  TExportDlg = class(TForm)
+    OKBtn: TButton;
+    CancelBtn: TButton;
+    ListView1: TListView;
+    procedure SetData(aTimeTable : T_TimeTable; ds_Load : TClientDataSet);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  ExportDlg: TExportDlg;
+
+implementation
+
+{$R *.dfm}
+
+{ TExportDlg }
+
+procedure TExportDlg.SetData(aTimeTable: T_TimeTable; ds_Load : TClientDataSet);
+var i : integer;
+    li : TListItem;
+    ldi : TLoadItem;
+begin
+    if aTimeTable = nil then exit;
+
+    for i := 0 to pred(aTimeTable.FreeLoad.Count) do
+    begin
+          li := ListView1.Items.Add;
+          ldi := aTimeTable.FreeLoad.Items[i] AS TLoadItem;
+
+          ds_Load.First;
+          while not ds_Load.Eof do
+          begin
+              if not (ds_Load.FieldByName('load_id').Value = ldi.LoadID) then
+              begin
+                ds_Load.Next;
+                continue;
+              end;
+              li.Caption := ds_Load.FieldByName('Subject').Value;
+              li.SubItems.Add(ds_Load.FieldByName('Lesson Type').Value);
+              li.SubItems.Add(ds_Load.FieldByName('Teacher').Value);
+              li.SubItems.Add(ds_Load.FieldByName('Group').Value);
+              li.SubItems.Add('Time conflict');
+              ds_Load.Next;
+          end;
+    end;
+
+    for i := 0 to pred(aTimeTable.AllLessons.Count) do
+    begin
+
+          if not ((aTimeTable.AllLessons.Items[i] AS TLesson).Room <> nil) then  continue;
+          ldi := (aTimeTable.AllLessons.Items[i] AS TLesson).LoadItem;
+          li := ListView1.Items.Add;
+
+
+          ds_Load.First;
+          while not ds_Load.Eof do
+          begin
+              if ds_Load.FieldByName('load_id').Value = ldi.LoadID then
+              begin
+                ds_Load.Next;
+                continue;
+              end;
+              li.Caption := ds_Load.FieldByName('Subject').Value;
+              li.SubItems.Add(ds_Load.FieldByName('Lesson Type').Value);
+              li.SubItems.Add(ds_Load.FieldByName('Teacher').Value);
+              li.SubItems.Add(ds_Load.FieldByName('Group').Value);
+              li.SubItems.Add('No room');
+              ds_Load.Next;
+          end;
+    end;
+end;
+
+end.

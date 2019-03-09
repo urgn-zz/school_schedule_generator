@@ -1,0 +1,56 @@
+unit export_dlg;
+
+interface
+
+uses Winapi.Windows, System.SysUtils, System.Classes, Vcl.Graphics, Vcl.Forms,
+  Vcl.Controls, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.Dialogs,
+  frxExportPDF, frxClass, frxExportXLS, Vcl.ComCtrls, TTimeTable,Data.SqlExpr;
+
+type
+  TExportDlg = class(TForm)
+    OKBtn: TButton;
+    CancelBtn: TButton;
+    ListView1: TListView;
+    procedure SetData(aTimeTable : T_TimeTable; ds_Load : TSQLDataSet);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  ExportDlg: TExportDlg;
+
+implementation
+
+{$R *.dfm}
+
+{ TExportDlg }
+
+procedure TExportDlg.SetData(aTimeTable: T_TimeTable; ds_Load : TSQLDataSet);
+var i : integer;
+    li : TListItem;
+    ldi : TLoadItem;
+begin
+    for i := 0 to pred(aTimeTable.FreeLoad.Count) do
+    begin
+          li := ListView1.Items.Add;
+          ldi := aTimeTable.FreeLoad.Items[i] AS TLoadItem;
+
+          ds_Load.First;
+          while not ds_Load.Eof do
+          begin
+              if ds_Load.FieldByName('load_id').Value = ldi.LoadID then
+              begin
+                ds_Load.Next;
+                continue;
+              end;
+              li.Caption := ds_Load.FieldByName('Subject').Value;
+
+              ds_Load.Next;
+          end;
+    end;
+
+end;
+
+end.
